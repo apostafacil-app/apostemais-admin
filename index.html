@@ -313,6 +313,35 @@ tbody td { padding: 11px 14px; font-size: 12px; color: var(--text); }
 }
 .btn-edit:hover { border-color: var(--purple); color: var(--purple-light); }
 
+.btn-del {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  font-size: 11px; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+  transition: all .12s; white-space: nowrap;
+}
+.btn-del:hover { border-color: var(--red); color: #f87171; }
+
+/* ── Confirm modal ───────────────────────────────────────────────── */
+.confirm-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center; z-index: 1000; padding: 24px;
+}
+.confirm-overlay.open { display: flex; }
+.confirm-box {
+  background: var(--bg3); border: 1px solid rgba(239,68,68,.3);
+  border-radius: 16px; padding: 28px; width: 100%; max-width: 360px;
+  box-shadow: 0 4px 24px rgba(239,68,68,.15);
+}
+.confirm-title { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+.confirm-msg   { font-size: 13px; color: var(--text-dim); margin-bottom: 22px; line-height: 1.5; }
+.confirm-btns  { display: flex; gap: 8px; }
+.btn-confirm-del {
+  flex: 1; background: #dc2626; color: #fff; border: none;
+  border-radius: 10px; padding: 11px; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: opacity .2s;
+}
+.btn-confirm-del:hover { opacity: .88; }
+.btn-confirm-del:disabled { opacity: .4; cursor: default; }
+
 /* ── Modal ───────────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(4px);
@@ -545,6 +574,18 @@ tbody td { padding: 11px 14px; font-size: 12px; color: var(--text); }
   </div>
 </div>
 
+<!-- ══ MODAL CONFIRMAR EXCLUSÃO ═════════════════════════════════════════════ -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title">🗑 Excluir licença?</div>
+    <div class="confirm-msg" id="confirm-msg">Esta ação não pode ser desfeita.</div>
+    <div class="confirm-btns">
+      <button class="btn-cancelar" onclick="fecharConfirm()">Cancelar</button>
+      <button class="btn-confirm-del" id="btn-confirm-del" onclick="confirmarExclusao()">Excluir</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL EDITAR VENCIMENTO ══════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-overlay" onclick="fecharModal(event)">
   <div class="modal">
@@ -774,7 +815,7 @@ async function buscarLicencas(busca) {
 
 async function carregarGerenciar(page = 1) {
   gerPage = page;
-  const url = `${BACKEND}/admin/licencas?page=${page}&limit=20${gerBusca ? '&busca='+encodeURIComponent(gerBusca) : ''}`;
+  const url = `${BACKEND}/admin/licencas?page=${page}&limit=10${gerBusca ? '&busca='+encodeURIComponent(gerBusca) : ''}`;
   try {
     const res = await fetch(url, { headers: headers() });
     if (!res.ok) throw new Error('status ' + res.status);
@@ -807,7 +848,10 @@ function renderGerTabela(licencas) {
       <td style="color:var(--text-muted);font-size:11px">${fmtData(l.criada_em)}</td>
       <td style="color:var(--text-muted);font-size:11px">${fmtData(l.vence_em)}</td>
       <td><span class="status-badge ${cls}">${lbl}</span></td>
-      <td><button class="btn-edit" onclick="abrirModal('${l.id}','${l.codigo}','${l.email}','${venceISO}')">✏ Editar</button></td>
+      <td style="display:flex;gap:5px">
+        <button class="btn-edit" onclick="abrirModal('${l.id}','${l.codigo}','${l.email}','${venceISO}')">✏ Editar</button>
+        <button class="btn-del"  onclick="abrirConfirm('${l.id}','${l.codigo}','${l.email}')">🗑</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -864,6 +908,41 @@ async function salvarVencimento() {
   } catch (e) {
     feedback.textContent = '✕ ' + e.message; feedback.className = 'modal-feedback err';
     btnSalvar.disabled = false;
+  }
+}
+
+// ─── Exclusão ──────────────────────────────────────────────────────────────
+let excluindoId = null;
+
+function abrirConfirm(id, codigo, email) {
+  excluindoId = id;
+  document.getElementById('confirm-msg').innerHTML =
+    `Tem certeza que deseja excluir a licença<br><strong>${codigo}</strong> (${email})?<br><br><span style="color:#f87171;font-size:12px">Esta ação não pode ser desfeita.</span>`;
+  document.getElementById('btn-confirm-del').disabled = false;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function fecharConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  excluindoId = null;
+}
+
+async function confirmarExclusao() {
+  if (!excluindoId) return;
+  const btn = document.getElementById('btn-confirm-del');
+  btn.disabled = true;
+  btn.textContent = 'Excluindo...';
+  try {
+    const res = await fetch(`${BACKEND}/admin/licencas/${excluindoId}`, {
+      method: 'DELETE', headers: headers()
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.erro || 'Erro ' + res.status); }
+    fecharConfirm();
+    await carregarGerenciar(gerPage);
+    await carregarMetricas();
+  } catch (e) {
+    btn.textContent = '✕ ' + e.message;
+    setTimeout(() => { btn.textContent = 'Excluir'; btn.disabled = false; }, 2500);
   }
 }
 
