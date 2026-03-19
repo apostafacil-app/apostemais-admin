@@ -449,6 +449,30 @@ tbody td { padding: 11px 14px; font-size: 12px; color: var(--text); }
       </div>
     </div>
 
+    <!-- Funil de Conversão -->
+    <div class="cards-grid funil-grid" style="margin-bottom:18px">
+      <div class="card" style="--card-color:#60a5fa">
+        <div class="card-label">📲 Instalações</div>
+        <div class="card-value" id="kpi-installs">—</div>
+        <div class="card-sub">abriram o app pela 1ª vez</div>
+      </div>
+      <div class="card" style="--card-color:#f472b6">
+        <div class="card-label">🎰 Usaram trial</div>
+        <div class="card-value" id="kpi-trials">—</div>
+        <div class="card-sub">jogaram no modo grátis</div>
+      </div>
+      <div class="card revenue">
+        <div class="card-label">💳 Conversão install → pago</div>
+        <div class="card-value" id="kpi-conv-install">—</div>
+        <div class="card-sub">% de instalações que pagaram</div>
+      </div>
+      <div class="card success">
+        <div class="card-label">🏆 Conversão trial → pago</div>
+        <div class="card-value" id="kpi-conv-trial">—</div>
+        <div class="card-sub">% do trial que virou cliente</div>
+      </div>
+    </div>
+
     <!-- Charts -->
     <div class="charts-row">
       <div class="chart-box">
@@ -606,6 +630,14 @@ async function carregarMetricas() {
     document.getElementById('kpi-receita').textContent   = fmtBRL(d.receita_total ?? 0);
     document.getElementById('kpi-vencendo').textContent  = d.vencendo_7_dias ?? '—';
     document.getElementById('kpi-expiradas').textContent = d.licencas_expiradas ?? '—';
+
+    // Funil
+    document.getElementById('kpi-installs').textContent   = d.total_installs ?? '—';
+    document.getElementById('kpi-trials').textContent     = d.total_trials   ?? '—';
+    document.getElementById('kpi-conv-install').textContent =
+      d.conversao_install_pago != null ? d.conversao_install_pago + '%' : '—';
+    document.getElementById('kpi-conv-trial').textContent =
+      d.conversao_trial_pago   != null ? d.conversao_trial_pago   + '%' : '—';
 
     renderBarChart(d.novas_licencas_mes || []);
     renderDonut(d.por_plano || {});
