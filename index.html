@@ -637,7 +637,7 @@ tbody td {
     <button class="tab-btn" id="tab-gerenciar" onclick="trocarAba('gerenciar')">🗂 Clientes & Licenças</button>
   </div>
 
-  <div class="content">
+  <div class="content" id="dash-content">
 
     <div class="error-banner" id="error-banner"></div>
 
@@ -1074,9 +1074,10 @@ function trocarAba(aba) {
   document.getElementById('tab-dashboard').classList.toggle('active', isDash);
   document.getElementById('tab-gerenciar').classList.toggle('active', !isDash);
 
-  // Oculta/mostra seções dentro do content principal
+  // Oculta/mostra seções dentro do content principal (escopo ao dash-content)
+  const dashContent = document.getElementById('dash-content');
   ['cards-grid', 'charts-row', 'table-box'].forEach(cls => {
-    document.querySelectorAll('.' + cls).forEach(el => {
+    dashContent.querySelectorAll('.' + cls).forEach(el => {
       el.style.display = isDash ? '' : 'none';
     });
   });
