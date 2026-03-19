@@ -606,6 +606,17 @@ tbody td { padding: 11px 14px; font-size: 12px; color: var(--text); }
 const BACKEND   = 'https://apostemais-backend-production.up.railway.app';
 const SECRET_KEY = 'apostemais_admin_secret';
 
+// Escapa HTML para prevenir XSS ao inserir dados do banco via innerHTML
+function esc(str) {
+  if (str == null) return '—';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 let chartBar = null, chartDonut = null;
 let currentPage = 1, totalPages = 1;
 let gerPage = 1, gerTotalPages = 1, gerBusca = '';
@@ -763,9 +774,9 @@ function renderTabela(licencas) {
   tbody.innerHTML = licencas.map(l => {
     const [cls, lbl] = sMap[l.status] || ['',''];
     return `<tr>
-      <td><span class="code-cell">${l.codigo}</span></td>
-      <td><span class="email-cell">${l.email}</span></td>
-      <td><span class="plano-pill plano-${l.plano}">${l.plano}</span></td>
+      <td><span class="code-cell">${esc(l.codigo)}</span></td>
+      <td><span class="email-cell">${esc(l.email)}</span></td>
+      <td><span class="plano-pill plano-${esc(l.plano)}">${esc(l.plano)}</span></td>
       <td style="color:var(--text-muted);font-size:11px">${fmtData(l.criada_em)}</td>
       <td style="color:var(--text-muted);font-size:11px">${fmtData(l.vence_em)}</td>
       <td><span class="status-badge ${cls}">${lbl}</span></td>
@@ -840,17 +851,20 @@ function renderGerTabela(licencas) {
   tbody.innerHTML = licencas.map(l => {
     const [cls, lbl] = sMap[l.status] || ['',''];
     const venceISO = l.vence_em ? l.vence_em.slice(0,10) : '';
+    const safeId  = esc(l.id);
+    const safeCod = esc(l.codigo);
+    const safeEml = esc(l.email);
     return `<tr>
-      <td><span class="code-cell">${l.codigo}</span></td>
-      <td><span class="email-cell">${l.email}</span></td>
-      <td style="color:var(--text-muted);font-size:11px">${l.nome !== '—' ? l.nome : ''}</td>
-      <td><span class="plano-pill plano-${l.plano}">${l.plano}</span></td>
+      <td><span class="code-cell">${safeCod}</span></td>
+      <td><span class="email-cell">${safeEml}</span></td>
+      <td style="color:var(--text-muted);font-size:11px">${l.nome !== '—' ? esc(l.nome) : ''}</td>
+      <td><span class="plano-pill plano-${esc(l.plano)}">${esc(l.plano)}</span></td>
       <td style="color:var(--text-muted);font-size:11px">${fmtData(l.criada_em)}</td>
       <td style="color:var(--text-muted);font-size:11px">${fmtData(l.vence_em)}</td>
       <td><span class="status-badge ${cls}">${lbl}</span></td>
       <td style="display:flex;gap:5px">
-        <button class="btn-edit" onclick="abrirModal('${l.id}','${l.codigo}','${l.email}','${venceISO}')">✏ Editar</button>
-        <button class="btn-del"  onclick="abrirConfirm('${l.id}','${l.codigo}','${l.email}')">🗑</button>
+        <button class="btn-edit" onclick="abrirModal('${safeId}','${safeCod}','${safeEml}','${venceISO}')">✏ Editar</button>
+        <button class="btn-del"  onclick="abrirConfirm('${safeId}','${safeCod}','${safeEml}')">🗑</button>
       </td>
     </tr>`;
   }).join('');
