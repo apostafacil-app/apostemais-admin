@@ -1083,9 +1083,7 @@ function trocarAba(aba) {
   document.getElementById('error-banner').style.display = 'none';
   document.getElementById('section-gerenciar').style.display = isDash ? 'none' : 'block';
 
-  if (!isDash && !document.getElementById('ger-body').children.length) {
-    carregarGerenciar(1);
-  }
+  if (!isDash) carregarGerenciar(gerPage);
 }
 
 // ─── Gerenciar licenças ────────────────────────────────────────────────────
