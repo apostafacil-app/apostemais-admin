@@ -559,7 +559,7 @@ tbody td { padding: 11px 14px; font-size: 12px; color: var(--text); }
         <table>
           <thead>
             <tr>
-              <th>Código</th><th>Email</th><th>Nome</th><th>Plano</th>
+              <th>Código</th><th>Email</th><th>Telefone</th><th>Plano</th>
               <th>Criada em</th><th>Vence em</th><th>Status</th><th>Ação</th>
             </tr>
           </thead>
@@ -857,7 +857,7 @@ function renderGerTabela(licencas) {
     return `<tr>
       <td><span class="code-cell">${safeCod}</span></td>
       <td><span class="email-cell">${safeEml}</span></td>
-      <td style="color:var(--text-muted);font-size:11px">${l.nome !== '—' ? esc(l.nome) : ''}</td>
+      <td><span class="email-cell">${esc(l.telefone)}</span></td>
       <td><span class="plano-pill plano-${esc(l.plano)}">${esc(l.plano)}</span></td>
       <td style="color:var(--text-muted);font-size:11px">${fmtData(l.criada_em)}</td>
       <td style="color:var(--text-muted);font-size:11px">${fmtData(l.vence_em)}</td>
