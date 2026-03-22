@@ -657,7 +657,7 @@ let gerPage = 1, gerTotalPages = 1, gerBusca = '';
 let editandoId = null;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-const getSecret = () => localStorage.getItem(SECRET_KEY) || '';
+const getSecret = () => sessionStorage.getItem(SECRET_KEY) || '';
 const headers   = () => ({ 'Authorization': `Bearer ${getSecret()}`, 'Content-Type': 'application/json' });
 
 function fmtBRL(v) { return 'R$' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -677,13 +677,13 @@ async function tentarLogin() {
     const res = await fetch(`${BACKEND}/admin/metricas`, { headers: { 'Authorization': `Bearer ${secret}` } });
     if (res.status === 401) { errEl.style.display = 'block'; errEl.textContent = 'Chave inválida.'; return; }
     if (!res.ok) throw new Error('Erro ' + res.status);
-    localStorage.setItem(SECRET_KEY, secret);
+    sessionStorage.setItem(SECRET_KEY, secret);
     mostrarDashboard();
   } catch { errEl.style.display = 'block'; errEl.textContent = 'Erro de conexão com o backend.'; }
 }
 
 function logout() {
-  localStorage.removeItem(SECRET_KEY);
+  sessionStorage.removeItem(SECRET_KEY);
   document.getElementById('dashboard').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('secret-input').value = '';
@@ -866,27 +866,71 @@ async function carregarMensagens() {
       tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:28px">Nenhuma mensagem criada</td></tr>`;
       return;
     }
-    tbody.innerHTML = mensagens.map(m => {
+    tbody.innerHTML = '';
+    for (const m of mensagens) {
       const badgeStyle = m.status === 'ativa'
         ? 'background:#16a34a22;color:#4ade80;border:1px solid #16a34a44'
         : m.status === 'expirada'
         ? 'background:#dc262622;color:#f87171;border:1px solid #dc262644'
         : 'background:#ffffff11;color:var(--text-muted);border:1px solid #ffffff22';
-      const badge = `<span style="padding:3px 10px;border-radius:20px;font-size:11px;${badgeStyle}">${m.status === 'ativa' ? '● Ativa' : m.status === 'expirada' ? '✕ Expirada' : '○ Inativa'}</span>`;
-      const btnAtivar = m.status !== 'ativa'
-        ? `<button class="btn-salvar" style="font-size:11px;padding:4px 10px" onclick="ativarMensagem('${esc(m.id)}')">Ativar</button>`
-        : `<button class="btn-cancelar" style="font-size:11px;padding:4px 10px" onclick="desativarMensagem('${esc(m.id)}')">Desativar</button>`;
-      return `<tr>
-        <td style="font-weight:500;color:var(--purple-light)">${esc(m.titulo)}</td>
-        <td style="color:var(--text-muted);font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(m.corpo)}">${esc(m.corpo)}</td>
-        <td>${fmtData(m.criada_em)}</td>
-        <td>${fmtData(m.expira_em)}</td>
-        <td>${badge}</td>
-        <td style="display:flex;gap:6px;flex-wrap:wrap">${btnAtivar}<button class="btn-excluir" style="font-size:11px;padding:4px 10px" onclick="excluirMensagem('${esc(m.id)}','${esc(m.titulo)}')">Excluir</button></td>
-      </tr>`;
-    }).join('');
+      const badgeText = m.status === 'ativa' ? '● Ativa' : m.status === 'expirada' ? '✕ Expirada' : '○ Inativa';
+
+      const tr = document.createElement('tr');
+
+      const tdTitulo = document.createElement('td');
+      tdTitulo.style.cssText = 'font-weight:500;color:var(--purple-light)';
+      tdTitulo.textContent = m.titulo;
+
+      const tdCorpo = document.createElement('td');
+      tdCorpo.style.cssText = 'color:var(--text-muted);font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      tdCorpo.title = m.corpo;
+      tdCorpo.textContent = m.corpo;
+
+      const tdCriada = document.createElement('td');
+      tdCriada.textContent = fmtData(m.criada_em);
+
+      const tdExpira = document.createElement('td');
+      tdExpira.textContent = fmtData(m.expira_em);
+
+      const tdStatus = document.createElement('td');
+      const badge = document.createElement('span');
+      badge.style.cssText = `padding:3px 10px;border-radius:20px;font-size:11px;${badgeStyle}`;
+      badge.textContent = badgeText;
+      tdStatus.appendChild(badge);
+
+      const tdAcoes = document.createElement('td');
+      tdAcoes.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
+
+      const btnToggle = document.createElement('button');
+      btnToggle.className = m.status !== 'ativa' ? 'btn-salvar' : 'btn-cancelar';
+      btnToggle.style.cssText = 'font-size:11px;padding:4px 10px';
+      btnToggle.textContent = m.status !== 'ativa' ? 'Ativar' : 'Desativar';
+      btnToggle.dataset.id = m.id;
+      btnToggle.dataset.action = m.status !== 'ativa' ? 'ativar' : 'desativar';
+      btnToggle.addEventListener('click', handleMsgToggle);
+
+      const btnDel = document.createElement('button');
+      btnDel.className = 'btn-excluir';
+      btnDel.style.cssText = 'font-size:11px;padding:4px 10px';
+      btnDel.textContent = 'Excluir';
+      btnDel.dataset.id = m.id;
+      btnDel.dataset.titulo = m.titulo;
+      btnDel.addEventListener('click', handleMsgExcluir);
+
+      tdAcoes.appendChild(btnToggle);
+      tdAcoes.appendChild(btnDel);
+      tr.append(tdTitulo, tdCorpo, tdCriada, tdExpira, tdStatus, tdAcoes);
+      tbody.appendChild(tr);
+    }
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#f87171;padding:20px">Erro: ${e.message}</td></tr>`;
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.style.cssText = 'text-align:center;color:#f87171;padding:20px';
+    td.textContent = 'Erro: ' + e.message;
+    tr.appendChild(td);
+    tbody.innerHTML = '';
+    tbody.appendChild(tr);
   }
 }
 
@@ -910,19 +954,16 @@ async function criarMensagem() {
   } catch (e) { fb.style.display='block'; fb.style.color='#f87171'; fb.textContent='Erro: '+e.message; }
 }
 
-async function ativarMensagem(id) {
-  await fetch(`${BACKEND}/admin/mensagens/${id}/ativar`, { method:'PATCH', headers: headers() });
+async function handleMsgToggle(e) {
+  const { id, action } = e.currentTarget.dataset;
+  await fetch(`${BACKEND}/admin/mensagens/${encodeURIComponent(id)}/${action}`, { method:'PATCH', headers: headers() });
   carregarMensagens();
 }
 
-async function desativarMensagem(id) {
-  await fetch(`${BACKEND}/admin/mensagens/${id}/desativar`, { method:'PATCH', headers: headers() });
-  carregarMensagens();
-}
-
-async function excluirMensagem(id, titulo) {
+async function handleMsgExcluir(e) {
+  const { id, titulo } = e.currentTarget.dataset;
   if (!confirm(`Excluir mensagem "${titulo}"?`)) return;
-  await fetch(`${BACKEND}/admin/mensagens/${id}`, { method:'DELETE', headers: headers() });
+  await fetch(`${BACKEND}/admin/mensagens/${encodeURIComponent(id)}`, { method:'DELETE', headers: headers() });
   carregarMensagens();
 }
 
