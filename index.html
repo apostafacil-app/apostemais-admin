@@ -386,6 +386,12 @@ tbody td { padding: 11px 14px; font-size: 12px; color: var(--text); }
   cursor: pointer; transition: all .15s;
 }
 .btn-cancelar:hover { border-color: var(--red); color: #f87171; }
+.btn-excluir {
+  background: transparent; border: 1px solid #dc262644; color: #f87171;
+  border-radius: 10px; padding: 11px 18px; font-size: 13px;
+  cursor: pointer; transition: all .15s;
+}
+.btn-excluir:hover { background: #dc262622; border-color: #f87171; }
 
 .modal-feedback { font-size: 12px; margin-top: 12px; text-align: center; min-height: 16px; }
 .modal-feedback.ok  { color: var(--green); }
@@ -438,6 +444,7 @@ tbody td { padding: 11px 14px; font-size: 12px; color: var(--text); }
   <div class="tabs">
     <button class="tab-btn active" id="tab-dashboard" onclick="trocarAba('dashboard')">📊 Dashboard</button>
     <button class="tab-btn" id="tab-gerenciar" onclick="trocarAba('gerenciar')">🗂 Clientes & Licenças</button>
+    <button class="tab-btn" id="tab-mensagens" onclick="trocarAba('mensagens')">📣 Mensagens</button>
   </div>
 
   <div class="content" id="dash-content">
@@ -598,6 +605,33 @@ tbody td { padding: 11px 14px; font-size: 12px; color: var(--text); }
       <button class="btn-salvar" id="btn-salvar" onclick="salvarVencimento()">Salvar</button>
     </div>
     <div class="modal-feedback" id="modal-feedback"></div>
+  </div>
+</div>
+
+<!-- ── Seção Mensagens ──────────────────────────────────────────────────── -->
+<div id="section-mensagens" class="content" style="display:none">
+  <div class="table-box" style="margin-bottom:20px">
+    <div class="table-header" style="margin-bottom:16px">CRIAR NOVA MENSAGEM</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <input id="msg-titulo" type="text" class="search-input" placeholder="Título (ex: Novidade no app!)" style="width:100%;box-sizing:border-box">
+      <textarea id="msg-corpo" class="search-input" placeholder="Texto da mensagem..." rows="4" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit"></textarea>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <label style="font-size:12px;color:var(--text-muted)">Expirar em (opcional):</label>
+        <input id="msg-expira" type="datetime-local" class="search-input" style="width:220px">
+        <button class="btn-salvar" onclick="criarMensagem()" style="margin-left:auto">Publicar Mensagem</button>
+      </div>
+    </div>
+    <div id="msg-feedback" style="font-size:12px;margin-top:10px;display:none"></div>
+  </div>
+
+  <div class="table-box">
+    <div class="table-header">MENSAGENS <span id="msg-count" style="font-size:11px;color:var(--text-muted);font-weight:400"></span></div>
+    <table class="ger-table">
+      <thead><tr>
+        <th>Título</th><th>Corpo</th><th>Criada</th><th>Expira</th><th>Status</th><th>Ações</th>
+      </tr></thead>
+      <tbody id="msg-body"><tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:28px">Carregando...</td></tr></tbody>
+    </table>
   </div>
 </div>
 
@@ -805,16 +839,91 @@ function esconderErro() { document.getElementById('error-banner').style.display 
 
 // ─── Tabs ──────────────────────────────────────────────────────────────────
 function trocarAba(aba) {
-  const isDash = aba === 'dashboard';
-  document.getElementById('tab-dashboard').classList.toggle('active', isDash);
-  document.getElementById('tab-gerenciar').classList.toggle('active', !isDash);
+  document.getElementById('tab-dashboard').classList.toggle('active', aba === 'dashboard');
+  document.getElementById('tab-gerenciar').classList.toggle('active', aba === 'gerenciar');
+  document.getElementById('tab-mensagens').classList.toggle('active', aba === 'mensagens');
   const dashContent = document.getElementById('dash-content');
   ['cards-grid','charts-row','table-box'].forEach(cls =>
-    dashContent.querySelectorAll('.'+cls).forEach(el => el.style.display = isDash ? '' : 'none')
+    dashContent.querySelectorAll('.'+cls).forEach(el => el.style.display = aba === 'dashboard' ? '' : 'none')
   );
   document.getElementById('error-banner').style.display = 'none';
-  document.getElementById('section-gerenciar').style.display = isDash ? 'none' : 'block';
-  if (!isDash) carregarGerenciar(gerPage);
+  document.getElementById('section-gerenciar').style.display = aba === 'gerenciar' ? 'block' : 'none';
+  document.getElementById('section-mensagens').style.display = aba === 'mensagens' ? 'block' : 'none';
+  if (aba === 'gerenciar') carregarGerenciar(gerPage);
+  if (aba === 'mensagens') carregarMensagens();
+}
+
+// ─── Mensagens ─────────────────────────────────────────────────────────────
+async function carregarMensagens() {
+  const tbody = document.getElementById('msg-body');
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:28px">Carregando...</td></tr>`;
+  try {
+    const res = await fetch(`${BACKEND}/admin/mensagens`, { headers: headers() });
+    if (!res.ok) throw new Error('status ' + res.status);
+    const { mensagens } = await res.json();
+    document.getElementById('msg-count').textContent = mensagens.length ? `(${mensagens.length})` : '';
+    if (!mensagens.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:28px">Nenhuma mensagem criada</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = mensagens.map(m => {
+      const badgeStyle = m.status === 'ativa'
+        ? 'background:#16a34a22;color:#4ade80;border:1px solid #16a34a44'
+        : m.status === 'expirada'
+        ? 'background:#dc262622;color:#f87171;border:1px solid #dc262644'
+        : 'background:#ffffff11;color:var(--text-muted);border:1px solid #ffffff22';
+      const badge = `<span style="padding:3px 10px;border-radius:20px;font-size:11px;${badgeStyle}">${m.status === 'ativa' ? '● Ativa' : m.status === 'expirada' ? '✕ Expirada' : '○ Inativa'}</span>`;
+      const btnAtivar = m.status !== 'ativa'
+        ? `<button class="btn-salvar" style="font-size:11px;padding:4px 10px" onclick="ativarMensagem('${esc(m.id)}')">Ativar</button>`
+        : `<button class="btn-cancelar" style="font-size:11px;padding:4px 10px" onclick="desativarMensagem('${esc(m.id)}')">Desativar</button>`;
+      return `<tr>
+        <td style="font-weight:500;color:var(--purple-light)">${esc(m.titulo)}</td>
+        <td style="color:var(--text-muted);font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(m.corpo)}">${esc(m.corpo)}</td>
+        <td>${fmtData(m.criada_em)}</td>
+        <td>${fmtData(m.expira_em)}</td>
+        <td>${badge}</td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">${btnAtivar}<button class="btn-excluir" style="font-size:11px;padding:4px 10px" onclick="excluirMensagem('${esc(m.id)}','${esc(m.titulo)}')">Excluir</button></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#f87171;padding:20px">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+async function criarMensagem() {
+  const titulo = document.getElementById('msg-titulo').value.trim();
+  const corpo  = document.getElementById('msg-corpo').value.trim();
+  const expira = document.getElementById('msg-expira').value;
+  const fb = document.getElementById('msg-feedback');
+  if (!titulo || !corpo) { fb.style.display='block'; fb.style.color='#f87171'; fb.textContent='Título e corpo são obrigatórios.'; return; }
+  try {
+    const body = { titulo, corpo };
+    if (expira) body.expira_em = new Date(expira).toISOString();
+    const res = await fetch(`${BACKEND}/admin/mensagens`, { method:'POST', headers: headers(), body: JSON.stringify(body) });
+    if (!res.ok) throw new Error('status ' + res.status);
+    fb.style.display='block'; fb.style.color='#4ade80'; fb.textContent='Mensagem publicada com sucesso!';
+    document.getElementById('msg-titulo').value='';
+    document.getElementById('msg-corpo').value='';
+    document.getElementById('msg-expira').value='';
+    setTimeout(() => { fb.style.display='none'; }, 3000);
+    carregarMensagens();
+  } catch (e) { fb.style.display='block'; fb.style.color='#f87171'; fb.textContent='Erro: '+e.message; }
+}
+
+async function ativarMensagem(id) {
+  await fetch(`${BACKEND}/admin/mensagens/${id}/ativar`, { method:'PATCH', headers: headers() });
+  carregarMensagens();
+}
+
+async function desativarMensagem(id) {
+  await fetch(`${BACKEND}/admin/mensagens/${id}/desativar`, { method:'PATCH', headers: headers() });
+  carregarMensagens();
+}
+
+async function excluirMensagem(id, titulo) {
+  if (!confirm(`Excluir mensagem "${titulo}"?`)) return;
+  await fetch(`${BACKEND}/admin/mensagens/${id}`, { method:'DELETE', headers: headers() });
+  carregarMensagens();
 }
 
 // ─── Gerenciar ─────────────────────────────────────────────────────────────
