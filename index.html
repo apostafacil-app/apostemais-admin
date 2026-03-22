@@ -608,6 +608,21 @@ tbody td { padding: 11px 14px; font-size: 12px; color: var(--text); }
   </div>
 </div>
 
+<!-- ── Modal Publicar Mensagem ──────────────────────────────────────────── -->
+<div class="modal-overlay" id="publish-overlay" onclick="fecharPublish(event)">
+  <div class="modal">
+    <div class="modal-title">Confirmar publicação</div>
+    <div class="modal-sub" style="margin-bottom:16px">Digite a senha de publicação para confirmar</div>
+    <label for="publish-secret-input">Senha de publicação</label>
+    <input type="password" id="publish-secret-input" class="search-input" placeholder="••••••••" style="width:100%;box-sizing:border-box;margin-top:6px">
+    <div class="modal-btns" style="margin-top:16px">
+      <button class="btn-cancelar" onclick="fecharPublish()">Cancelar</button>
+      <button class="btn-salvar" onclick="confirmarPublicacao()">Publicar</button>
+    </div>
+    <div id="publish-feedback" class="modal-feedback"></div>
+  </div>
+</div>
+
 <!-- ── Seção Mensagens ──────────────────────────────────────────────────── -->
 <div id="section-mensagens" class="content" style="display:none">
   <div class="table-box" style="margin-bottom:20px">
@@ -934,24 +949,54 @@ async function carregarMensagens() {
   }
 }
 
-async function criarMensagem() {
+function criarMensagem() {
+  const titulo = document.getElementById('msg-titulo').value.trim();
+  const corpo  = document.getElementById('msg-corpo').value.trim();
+  const fb = document.getElementById('msg-feedback');
+  if (!titulo || !corpo) {
+    fb.style.display='block'; fb.style.color='#f87171';
+    fb.textContent='Título e corpo são obrigatórios.'; return;
+  }
+  fb.style.display='none';
+  // Abre modal de confirmação com senha
+  document.getElementById('publish-secret-input').value = '';
+  document.getElementById('publish-feedback').textContent = '';
+  document.getElementById('publish-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('publish-secret-input').focus(), 100);
+}
+
+function fecharPublish(e) {
+  if (e && e.target !== document.getElementById('publish-overlay')) return;
+  document.getElementById('publish-overlay').classList.remove('open');
+}
+
+async function confirmarPublicacao() {
+  const senha = document.getElementById('publish-secret-input').value;
+  const fb    = document.getElementById('publish-feedback');
+  if (!senha) { fb.style.color='#f87171'; fb.textContent='Digite a senha.'; return; }
+
   const titulo = document.getElementById('msg-titulo').value.trim();
   const corpo  = document.getElementById('msg-corpo').value.trim();
   const expira = document.getElementById('msg-expira').value;
-  const fb = document.getElementById('msg-feedback');
-  if (!titulo || !corpo) { fb.style.display='block'; fb.style.color='#f87171'; fb.textContent='Título e corpo são obrigatórios.'; return; }
+
   try {
-    const body = { titulo, corpo };
+    const body = { titulo, corpo, publish_secret: senha };
     if (expira) body.expira_em = new Date(expira).toISOString();
     const res = await fetch(`${BACKEND}/admin/mensagens`, { method:'POST', headers: headers(), body: JSON.stringify(body) });
-    if (!res.ok) throw new Error('status ' + res.status);
-    fb.style.display='block'; fb.style.color='#4ade80'; fb.textContent='Mensagem publicada com sucesso!';
+    const json = await res.json();
+    if (res.status === 403) { fb.style.color='#f87171'; fb.textContent='Senha incorreta.'; return; }
+    if (!res.ok) throw new Error(json.erro || 'Erro ' + res.status);
+
+    document.getElementById('publish-overlay').classList.remove('open');
+    const msgFb = document.getElementById('msg-feedback');
+    msgFb.style.display='block'; msgFb.style.color='#4ade80';
+    msgFb.textContent='Mensagem publicada com sucesso!';
     document.getElementById('msg-titulo').value='';
     document.getElementById('msg-corpo').value='';
     document.getElementById('msg-expira').value='';
-    setTimeout(() => { fb.style.display='none'; }, 3000);
+    setTimeout(() => { msgFb.style.display='none'; }, 3000);
     carregarMensagens();
-  } catch (e) { fb.style.display='block'; fb.style.color='#f87171'; fb.textContent='Erro: '+e.message; }
+  } catch (e) { fb.style.color='#f87171'; fb.textContent='Erro: '+e.message; }
 }
 
 async function handleMsgToggle(e) {
